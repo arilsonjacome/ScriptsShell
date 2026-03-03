@@ -1,5 +1,3 @@
-# Markdown
-# ScriptsShell
 
 # Framework de Automação de Instalação MSI em PowerShell
 
