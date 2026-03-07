@@ -1,5 +1,12 @@
 #!/bin/bash
 
+#
+# OBS: Partes desse script já estavam em produção, mas sua configuração era efetuada de forma manual em cada equipamento.
+# Este Script Automatizou os respectivos processos de forma que apenas sua execução com permissão de ROOT é suficiente 
+# para a respectiva implementação.
+# Adapte-o a realidade de sua empresa antes e executá-lo.
+#
+
 #=============================================================================
 # ATUALIZACAO DO SISTEMA
 #=============================================================================
@@ -253,4 +260,5 @@ chown -R "$USER":"$USER" "$AUTOSTART_DIR"
 #chmod -R 755 "$AUTOSTART_DIR"
 
 systemctl restart gdm
+
 
