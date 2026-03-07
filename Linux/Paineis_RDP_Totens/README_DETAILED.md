@@ -1,6 +1,16 @@
 # Automação de Provisionamento Debian para Terminais RDP
 Este documento descreve a arquitetura, o fluxo de execução e os componentes técnicos do script de provisionamento destinado a transformar uma instalação Debian em um terminal dedicado para sessões RDP persistentes, com login automático, reconexão contínua e prevenção de bloqueio de tela.
 
+# PONTOS DE ATENÇÃO
+1. Script desenvolvido para DEBIAN 13 outras distros ou versões podem necessitar de adaptações
+2. Script projetado para funcionar com usuários "debian" criado. Para outros usuários deve-se atentar para o seguinte:
+  - Atulizar a variável "USER" resolverá o problema fora das estruturas "EOF"
+  - Nas estruturas EOF os caminhos indicativos do respectivo usuário deverão ser alteradas manualmente
+  - Ex: cat << 'EOF' > "$GDM_CONF", na linha "AutomaticLogin = debian"; deve-se indicar o respectivo usuário criado em seu sistema.
+3.  Partes desse script já estavam em produção, mas sua configuração era efetuada de forma manual em cada equipamento.
+  - Este Script Automatizou os respectivos processos de forma que apenas sua execução com permissão de ROOT é suficiente para a respectiva implementação.
+  - Adapte-o à realidade de sua empresa antes e executá-lo visto que algumas partes nevrálgicas estavam rodando em uma empresa que pode não adaptar-se ao seu negócio.
+
 # Requisitos do Ambiente
 - Debian 13 (Trixie) ou compatível.
 - Acesso root para execução do script.
