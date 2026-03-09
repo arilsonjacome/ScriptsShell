@@ -8,6 +8,14 @@
 #
 
 #=============================================================================
+# LOGS DO SCRIPT
+#=============================================================================
+
+LOGFILE="/var/log/paineis_rdp.log"
+exec > >(tee -a "$LOGFILE") 2>&1
+echo "===== Início do script: $(date '+%Y-%m-%d %H:%M:%S') ====="
+
+#=============================================================================
 # ATUALIZACAO DO SISTEMA
 #=============================================================================
 
@@ -47,14 +55,22 @@ PACKS=(
     "firefox-esr"
 )
 
+#Variaveis do Debian
 USER="debian"
 USER_HOME="/home/$USER"
-RDP="$USER_HOME/start-rdp.sh"
 PULSE_CONF="/etc/pulse/default.pa"
 AUTOSTART_DIR="$USER_HOME/.config/autostart"
 CLICKER="$USER_HOME/clicker.sh"
 
+#Vairiaveis de acesso RDP
+RDP="$USER_HOME/start-rdp.sh"
+RDP_USER="teste01"
+RDP_USER_PWD="Test3@user"
+RDP_SERVER="10.0.0.15"
+RDP_DOMAIN="teste.local"
+RDP_PORT="3389"
 
+echo "===== Atualizacao base do Debian ====="
 
 #Backup do arquivo Sources
 mkdir -p "$BACKUP_DIR"
@@ -76,6 +92,10 @@ done
 
 apt update -y && apt upgrade -y && apt full-upgrade -y
 
+echo "===== Fim da atualizacao base do Debian ====="
+
+echo "===== Instalacao dos pacotes basicos necessarios ====="
+
 #=============================================================================
 # INSTALACAO DE PACOTES BASICOS
 #=============================================================================
@@ -90,8 +110,14 @@ apt install --no-install-recommends gnome-session-flashback -y
 
 #Instalacao de pacotes necessarios
 for p in "${PACKS[@]}"; do
-    apt install "$p" -y 
+    echo "Iniciando a instalacao do pacote $p"
+	apt install "$p" -y 
+	echo "Pacote $p instalado com sucesso ou ja presente no Debian"
 done
+
+echo "===== Fim da Instalacao dos pacotes basicos necessarios ====="
+
+echo "===== Configuracao do Ambiente Grafico ====="
 
 #=============================================================================
 # TRABALHANDO O AMBIENTE GRAFICO 
@@ -103,51 +129,24 @@ systemctl enable gdm
 # Inicia imediatamente o ambiente gráfico
 systemctl start gdm
 
+#==========================================================================================================
 #Criando backup do daemon.conf"
 cp "$GDM_CONF" "${GDM_CONF}.backup.$(date +%Y%m%d_%H%M%S)"
 
-#============================================================================================================
-# Sobrescrevendo daemon.conf com configuração padrão
-	#Com isso o usuario 'debian' se autenticara imediatamente com a inicializacao do sistema operacional
-    
-cat << 'EOF' > "$GDM_CONF"
-# GDM configuration storage
-#
-# See /usr/share/gdm/gdm.schemas for a list of available options.
+# Verifica se as linhas abaixo existem e, se não, acrescenta-as nas linhas informadas pelo comando "sed"
 
-[daemon]
-# Uncomment the line below to force the login screen to use Xorg
-#WaylandEnable=false
+# AutomaticLoginEnable = true
+grep -qxF "AutomaticLoginEnable = true" "$GDM_CONF" || sed -i "/^#  AutomaticLoginEnable = true/a AutomaticLoginEnable = true" "$GDM_CONF"
 
-# Enabling automatic login
-#  AutomaticLoginEnable = true
-AutomaticLoginEnable = true
-#  AutomaticLogin = user1
-AutomaticLogin = debian
+# AutomaticLogin = $USER
+grep -qxF "AutomaticLogin = $USER" "$GDM_CONF" || sed -i "/^#  AutomaticLogin = user1/a AutomaticLogin = $USER" "$GDM_CONF"
 
-# Enabling timed login
-#  TimedLoginEnable = true
-#  TimedLogin = user1
-#  TimedLoginDelay = 10
-TimedLoginDelay = 0
-
-[security]
-
-[xdmcp]
-
-[chooser]
-
-[debug]
-# Uncomment the line below to turn on debugging
-# More verbose logs
-# Additionally lets the X server dump core if it crashes
-#Enable=true
-EOF
-#==============================================================================================================
-
+# TimedLoginDelay = 0
+grep -qxF "TimedLoginDelay = 0" "$GDM_CONF" || sed -i "/^#  TimedLoginDelay = 10/a TimedLoginDelay = 0" "$GDM_CONF"
 
 # Reinicia o GDM para aplicar as alterações
 systemctl restart gdm
+#==========================================================================================================
 
 #Faz backup do arquivo "PULSE"
 cp "$PULSE_CONF" "$BACKUP_DIR/default.pa.backup.$(date +%Y%m%d_%H%M%S)"
@@ -163,6 +162,9 @@ grep -qxF "$SET_DEFAULT" "$PULSE_CONF" || echo "$SET_DEFAULT" >> "$PULSE_CONF"
 su - "$USER" -c "pulseaudio -k || true"
 su - "$USER" -c "pulseaudio --start || true"
 
+echo "===== Fim da Configuracao do Ambiente Grafico ====="
+
+echo "===== Configuracao do Acesso RDP ====="
 
 #Configura arquivo de sessão RDP
 cat << 'EOF' > "$RDP"
@@ -174,11 +176,6 @@ cat << 'EOF' > "$RDP"
 #sleep 30
 
 # variaveis da conexao RDP
-SERVIDOR=INFORMAR O ENDEREÇO DO SEU SERVIDOR RDP
-USUARIO="INFORMAR O USUÁRIO QUE TERA ACESSO A SESSÃO"
-SENHA="INFORMAR A SENHA DO USUARIO"
-PORTA=3389
-DOMINIO="INFORMAR O DOMINIO"
 
 # Verifica se os campos foram preenchidos
 if [[ -z "$SERVIDOR" ]]; then
@@ -203,6 +200,18 @@ done
 
 EOF
 
+# Verifica se existe as entradas abaixo por meio de REGEX e elimina a linha inteira se existir
+sed -i \
+  -e '/^SERVIDOR=/d' \
+  -e '/^USUARIO=/d' \
+  -e '/^SENHA=/d' \
+  -e '/^PORTA=/d' \
+  -e '/^DOMINIO=/d' \
+  "$RDP"
+
+# Insere as linhas abaixo no arquivo criado para fornecer as variaceis necessarias ao acesso RDP
+sed -i "/# variaveis da conexao RDP/a SERVIDOR=$RDP_SERVER\nUSUARIO=$RDP_USER\nSENHA=$RDP_USER_PWD\nPORTA=$RDP_PORT\nDOMINIO=$RDP_DOMAIN" "$RDP"
+
 #Clica constantemente na tela para evitar entrada do Screensaver
 cat << 'EOF' > "$CLICKER"
 
@@ -223,7 +232,6 @@ while [ "$condition" = true ]; do
 done
 EOF
 
-
 # Cria o diretório caso não exista
 if [[ ! -d "$AUTOSTART_DIR" ]]; then
     mkdir -p "$AUTOSTART_DIR"
@@ -232,21 +240,26 @@ else
     echo "Diretório já existe: $AUTOSTART_DIR"
 fi
 
+#Cria e insere as configurações nos arquivos autostart para automatizar RDP e CLICKER
+touch "$AUTOSTART_DIR/rdesktop.desktop" "$AUTOSTART_DIR/clicker.desktop"
 
-#Arquivos autostart para automatizar RDP e CLICKER
-cat << 'EOF' > "$AUTOSTART_DIR/rdesktop.desktop"
+cat <<EOF > "$AUTOSTART_DIR/rdesktop.desktop"
 [Desktop Entry]
 Type=Application
-Exec=/home/debian/start-rdp.sh
+Exec=/home/$USER/start-rdp.sh
 Name=start-rdp.sh
 EOF
 
-cat << 'EOF' > "$AUTOSTART_DIR/clicker.desktop"
+cat <<EOF > "$AUTOSTART_DIR/clicker.desktop"
 [Desktop Entry]
 Type=Application
-Exec=/home/debian/clicker.sh
+Exec=/home/$USER/clicker.sh
 Name=clicker.sh
 EOF
+
+echo "===== Fim da Configuracao do Acesso RDP ====="
+
+echo "===== Configuracao de Permissoes de Acesso ====="
 
 #Dando permissão de execução ao scrip RDP
 chmod +x "$RDP"
@@ -256,9 +269,10 @@ chown "$USER":"$USER" "$RDP"
 chown "$USER":"$USER" "$CLICKER"
 # Ajusta dono e grupo
 chown -R "$USER":"$USER" "$AUTOSTART_DIR"
-# Ajusta permissões totais para o usuário
-#chmod -R 755 "$AUTOSTART_DIR"
+
+echo "===== Fim da Configuracao de Permissoes de Acesso ====="
 
 systemctl restart gdm
 
-
+# Finalizando o LOG
+echo "===== Fim do script: $(date '+%Y-%m-%d %H:%M:%S') ====="
